@@ -1,3 +1,14 @@
+from flask import Flask, Blueprint, render_template, request
+
+app = Flask(__name__)
+
+bp = Blueprint(
+    'k_means',
+    __name__,
+    url_prefix='/k_means',
+    template_folder='templates'
+)
+
 import numpy as np
 
 def generate_matrix(rows, cols):
@@ -24,7 +35,6 @@ def kmeans(points, k):
     cols = n
     
     ma_tran_phan_hoach = generate_matrix(rows, cols)
-    print(ma_tran_phan_hoach)
 
     flag = True
     count = 0
@@ -37,7 +47,7 @@ def kmeans(points, k):
         for i in range(k):
             idxs = np.where(ma_tran_phan_hoach[i] == 1)[0]
             diem_trong_cum = points[idxs]
-            idx_diem_dict = {f'điểm A{idx}': tuple(diem_trong_cum[j]) for j, idx in enumerate(idxs)}
+            idx_diem_dict = {f'điểm {idx+1}': tuple(diem_trong_cum[j]) for j, idx in enumerate(idxs)}
             trong_tam = diem_trong_cum.mean(axis=0)
             danh_sach_trong_tam.append(trong_tam)
             final_dict[f"Cụm_{i+1}"] = {"điểm trong cụm": idx_diem_dict, "trọng tâm": list(trong_tam)}
@@ -54,17 +64,24 @@ def kmeans(points, k):
             flag = False
         else:
             ma_tran_phan_hoach = ma_tran_phan_hoach_tinh_lai
-    
-    print(f"Thuật toán k-means đã hội tụ sau {count} lần lặp.")
-    print(f"Kết quả phân cụm cuối cùng: {final_dict}")
+        
+    final_dict = "\n".join(f"{k}: {v}" for k, v in final_dict.items())
+    return final_dict, count
+
+@bp.route("/", methods=["GET", "POST"])
+def index():
+    if request.method == "POST":
+        diem_input = request.form.get("diem")
+        cum_input = request.form.get("cum")
+        points = diem_input.replace("(", "").replace(")", "").split(",")
+        points = [list(map(float, point.strip().split())) for point in points if point.strip()]
+        k = int(cum_input)
+        final_dict, count = kmeans(points, k)
+        return render_template("result_k.html", result=final_dict, count=count, diem=diem_input, cum=cum_input)
+
+    return render_template("index_k.html")
+
+app.register_blueprint(bp)
 
 if __name__ == "__main__":
-    n = int(input("Nhập số điểm: "))
-    points = []
-    for i in range(n):
-        x, y = map(float, input(f"Nhập toạ độ điểm A{i+1} (x y): ").split())
-        points.append([x, y])
-    
-    k = int(input("Nhập số cụm k: "))
-    
-    kmeans(points, k)
+    app.run(debug=True)
