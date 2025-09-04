@@ -1,19 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Kết quả Rough Set</title>
+    <title>Kết quả tính toán</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 </head>
 <body class="container mt-4">
-    <h2 class="text-center">Kết quả phân tích Rough Set</h2>
-    <h4>Bảng dữ liệu:</h4>
+    <h2 class="text-center">Kết quả Tính Toán</h2>
+
+    <h4>Dữ liệu hiện tại</h4>
     {{ table | safe }}
 
-    <h4 class="mt-4">Kết quả với B={{B}} và X={{X}}:</h4>
-    <p><b>Xấp xỉ dưới:</b> {{lower}}</p>
-    <p><b>Xấp xỉ trên:</b> {{upper}}</p>
-    <p><strong>α(B,X):</strong> {{ alpha }}</p>
+    <h4 class="mt-4">Các Reduct tìm được:</h4>
+    {% if reducts %}
+        <ul>
+        {% for r in reducts %}
+            <li>{{ r }}</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>Không tìm thấy reduct.</p>
+    {% endif %}
 
-    <a href="/" class="btn btn-secondary mt-3">Quay lại</a>
+    <!-- <h4>Core:</h4>
+    <p>{{ core }}</p> -->
+
+    <h4 class="mt-4">Kết quả tính với X và B nhập vào:</h4>
+    <p><b>Tập X:</b> {{ X }}</p>
+    <p><b>Tập thuộc tính B:</b> {{ B }}</p>
+    <p><b>Lower Approximation:</b> {{ lower }}</p>
+    <p><b>Upper Approximation:</b> {{ upper }}</p>
+    <p><b>Độ chính xác α(B,X):</b> {{ alpha }}</p>
+
+    <a href="{{ url_for('reduct.index') }}" class="btn btn-secondary mt-3">Quay lại</a>
 </body>
 </html>
