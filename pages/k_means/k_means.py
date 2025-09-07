@@ -1,4 +1,5 @@
 from flask import Flask, Blueprint, render_template, request
+import numpy as np
 
 app = Flask(__name__)
 
@@ -8,8 +9,6 @@ bp = Blueprint(
     url_prefix='/k_means',
     template_folder='templates'
 )
-
-import numpy as np
 
 def generate_matrix(rows, cols):
     if cols < rows:
@@ -65,7 +64,6 @@ def kmeans(points, k):
         else:
             ma_tran_phan_hoach = ma_tran_phan_hoach_tinh_lai
         
-    final_dict = "\n".join(f"{k}: {v}" for k, v in final_dict.items())
     return final_dict, count
 
 @bp.route("/", methods=["GET", "POST"])
