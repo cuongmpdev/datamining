@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Trực quan hóa Cây Quyết Định</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css">
+</head>
+
+<body>
+    <div class="container ">
+        <div class="row justify-content-between">
+            <div class="col-6">
+          
+                    <h4 class="text-primary">Bảng dữ liệu:</h4>
+                    {{ table | safe }}
+            
+            </div>
+            <div class="col-6 text-center">
+                <h4 class="text-primary">Đồ thị Cây Quyết Định (ID3)</h4>
+                <p>Biểu diễn trực quan cấu trúc cây quyết định.</p>
+                <img src="{{ tree_image_url }}" alt="Decision Tree Diagram"></div>
+            
+        </div> 
+        <hr>
+        <h4 class="text-success">Thực hiện dự đoán: </h4>
+        <form id="predictionForm" method="POST">
+            <div class="form-group input-group mb-3">
+                <label class="input-group-text" for="Troi">Trời:</label>
+                <select class="form-select" id="Troi" name="Troi">
+                    <option value="Sunny">Nắng</option>
+                    <option value="Overcast">Mây mù</option>
+                    <option value="Rain">Mưa</option>
+                </select>
+            </div>
+            <div class="form-group input-group mb-3">
+                <label class="input-group-text" for="Nhietdo">Nhiệt độ:</label>
+                <select class="form-select" id="Nhietdo" name="Nhietdo">
+                    <option value="Hot">Nóng</option>
+                    <option value="Mild">Ấm</option>
+                    <option value="Cool">Mát</option>
+                </select>
+            </div>
+            <div class="form-group input-group mb-3">
+                <label class="input-group-text" for="Doam">Độ ẩm:</label>
+                <select class="form-select" id="Doam" name="Doam">
+                    <option value="High">Cao</option>
+                    <option value="Normal">Bình thường</option>
+                </select>
+            </div>
+            <div class="form-group input-group mb-3">
+                <label class="input-group-text" for="Gio">Gió:</label>
+                <select class="form-select" id="Gio" name="Gio">
+                    <option value="Weak">Yếu</option>
+                    <option value="Strong">Mạnh</option>
+                </select>
+            </div>
+        
+            <button type="submit" class="btn btn-success">Dự đoán</button>
+        </form>
+    </div>
+    
+
+</body>
+
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <title>Kết Quả Dự Đoán</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css">
+    <style>
+       
+    </style>
+</head>
+
+<body>
+  
+    <div class="container">
+        <div class="row justify-content-between">
+            <div class="col-6">
+        
+                <h4 class="text-primary">Bảng dữ liệu:</h4>
+                {{ table | safe }}
+        
+            </div>
+            <div class="col-6 text-center">
+                <h4 class="text-primary">Đồ thị Cây Quyết Định (ID3)</h4>
+                <p>Biểu diễn trực quan cấu trúc cây quyết định.</p>
+                <img src="{{ tree_image_url }}" alt="Decision Tree Diagram">
+            </div>
+        
+        </div>
+        <hr>
+        <div class="border border-info border-2 rounded p-2">
+            <h4 class="text-danger">Kết Quả Dự Đoán</h4>
+            <p>Dựa trên các điều kiện đã chọn, kết quả dự đoán là:</p>
+            <div class="result-box">
+                <span class="result-text text-info fs-3">{{ prediction }}</span>
+            </div>
+            
+            <h6>Thông tin đã nhập:</h6>
+            <ul>
+                <li><strong>Trời:</strong> {{ input_data['Troi'] }}</li>
+                <li><strong>Nhiệt độ:</strong> {{ input_data['Nhietdo'] }}</li>
+                <li><strong>Độ ẩm:</strong> {{ input_data['Doam'] }}</li>
+                <li><strong>Gió:</strong> {{ input_data['Gio'] }}</li>
+            </ul>
+        </div>
+        
+        <p><a href="/" class="btn btn-secondary mt-3">Quay lại</a></p>
+    </div>
+</body>
+
+</html>
