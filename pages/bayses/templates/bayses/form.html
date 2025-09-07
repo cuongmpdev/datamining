@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"/>
+  <title>Naïve Bayes – Nhập dữ liệu</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+    textarea { width: 100%; min-height: 240px; }
+    label { font-weight: 600; }
+    .row { margin-bottom: 16px; }
+    .hint { color: #666; font-size: 0.9rem; }
+    .btn { padding: 10px 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Phân lớp bằng Naïve Bayes (Categorical + Laplace)</h1>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <ul style="color:#b00020">
+        {% for m in messages %}
+        <li>{{ m }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+
+  <form method="post" action="/bayses/run">
+    <div class="row">
+      <label for="training_csv">Training CSV (có header):</label><br/>
+      <textarea id="training_csv" name="training_csv" placeholder="Dán CSV vào đây...">{{ example_csv }}</textarea>
+      <div class="hint">Ví dụ header: <code>Thời tiết,Nhiệt độ,Độ ẩm,Gió,Đi chơi?</code></div>
+    </div>
+
+    <div class="row">
+      <label for="target_col">Tên cột nhãn (target):</label><br/>
+      <input id="target_col" name="target_col" value="Đi chơi?" style="width: 320px;"/>
+    </div>
+
+    <div class="row">
+      <label for="sample_kv">Mẫu cần phân lớp (dạng <code>key=value; key=value; ...</code>):</label><br/>
+      <input id="sample_kv" name="sample_kv"
+             value="Thời tiết=Nắng; Nhiệt độ=Nóng; Độ ẩm=Cao; Gió=Yếu"
+             style="width: 100%;"/>
+      <div class="hint">Phải nhập đủ các thuộc tính trùng với header (trừ cột nhãn).</div>
+    </div>
+
+    <div class="row">
+      <label for="alpha">Alpha (Laplace smoothing):</label><br/>
+      <input id="alpha" name="alpha" value="1.0" type="number" step="0.1" style="width: 120px;"/>
+      <div class="hint">Áp dụng làm trơn để tránh xác suất 0.</div>
+    </div>
+
+    <button class="btn" type="submit">Chạy Naïve Bayes</button>
+  </form>
+
+  <p class="hint" style="margin-top:24px">
+    Cơ sở thuật toán và ví dụ tennis lấy từ tài liệu lớp:  [oai_citation:0‡Bai4_PhanLop_Bayes.pdf](file-service://file-1NM9dtbPRbjDkdSs3tRnd4)  [oai_citation:1‡Bai7_PhanLop_Bayes.pdf](file-service://file-BZmVkzq3pFZwhWsMHbM59d)
+  </p>
+</body>
+</html>
