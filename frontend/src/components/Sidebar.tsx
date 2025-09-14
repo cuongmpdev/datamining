@@ -10,8 +10,7 @@ export function Sidebar({ items, active, onSelect }: { items: Item[]; active: st
   return (
     <aside className="sidebar fixed left-0 top-0 bottom-0 border-r border-gray-200 bg-white">
       <div className="px-4 py-3 border-b">
-        <div className="font-semibold">Data Mining Toolkit</div>
-        <div className="text-xs text-gray-500">React + FastAPI</div>
+        <div className="font-semibold">Data Mining</div>
       </div>
       <nav className="p-2 space-y-1">
         {items.map((it) => (

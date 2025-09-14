@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/Label'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { apiKMeans, apiPreview } from '@/lib/api'
 import { PreviewTable } from '@/components/PreviewTable'
+import { SampleDatasets } from '@/components/SampleDatasets'
 
 export default function KMeansPage() {
   const [file, setFile] = React.useState<File | null>(null)
@@ -52,6 +53,14 @@ export default function KMeansPage() {
             <div className="md:col-span-2">
               <Label>Tệp dữ liệu</Label>
               <FileUploader file={file} onChange={setFile} />
+              <SampleDatasets
+                onPick={(f) => setFile(f)}
+                samples={[
+                  { label: 'kmeans_points.csv', path: '/data/kmeans_points.csv' },
+                  { label: 'kmeans_points_b.csv', path: '/data/kmeans_points_b.csv' },
+                  { label: 'kmeans_points_c.csv', path: '/data/kmeans_points_c.csv' },
+                ]}
+              />
             </div>
             <div>
               <Label className="mb-1 block">Số cụm (k)</Label>
@@ -120,4 +129,3 @@ export default function KMeansPage() {
     </div>
   )
 }
-

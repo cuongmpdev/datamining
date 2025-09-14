@@ -18,7 +18,7 @@ Project Structure
 Backend: Run Locally
 1) Create a virtualenv and install deps
    - cd backend
-   - python -m venv .venv && source .venv/bin/activate (or .venv\Scripts\activate on Windows)
+   - python3 -m venv .venv && source .venv/bin/activate (or .venv\Scripts\activate on Windows)
    - pip install -r requirements.txt
 2) Start API server
    - uvicorn app:app --reload --port 8000

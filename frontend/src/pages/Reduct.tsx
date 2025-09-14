@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Label } from '@/components/ui/Label'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { apiPreview, apiReduct } from '@/lib/api'
+import { SampleDatasets } from '@/components/SampleDatasets'
 
 export default function ReductPage() {
   const [file, setFile] = React.useState<File | null>(null)
@@ -49,6 +50,14 @@ export default function ReductPage() {
             <div className="md:col-span-2">
               <Label>Tệp dữ liệu</Label>
               <FileUploader file={file} onChange={setFile} />
+              <SampleDatasets
+                onPick={(f) => setFile(f)}
+                samples={[
+                  { label: 'play_tennis.csv', path: '/data/play_tennis.csv' },
+                  { label: 'decision_tree_loan.csv', path: '/data/decision_tree_loan.csv' },
+                  { label: 'decision_tree_mushroom.csv', path: '/data/decision_tree_mushroom.csv' },
+                ]}
+              />
             </div>
             <div>
               <Label className="mb-1 block">Thuộc tính quyết định</Label>
@@ -95,4 +104,3 @@ export default function ReductPage() {
     </div>
   )
 }
-

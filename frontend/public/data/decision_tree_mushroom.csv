@@ -1,0 +1,14 @@
+cap_shape,cap_color,odor,edible
+bell,brown,almond,yes
+convex,yellow,foul,no
+bell,white,almond,yes
+convex,brown,none,yes
+flat,yellow,foul,no
+convex,white,almond,yes
+bell,brown,none,yes
+flat,white,foul,no
+convex,yellow,almond,yes
+bell,white,foul,no
+flat,brown,none,yes
+convex,brown,foul,no
+

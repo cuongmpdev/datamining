@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { apiDecisionTree, apiPreview } from '@/lib/api'
+import { SampleDatasets } from '@/components/SampleDatasets'
 
 function TreeView({ node, depth = 0 }: { node: any; depth?: number }) {
   const pad = Array(depth).fill('│  ').join('')
@@ -79,6 +80,14 @@ export default function DecisionTreePage() {
             <div className="md:col-span-2">
               <Label>Tệp dữ liệu</Label>
               <FileUploader file={file} onChange={setFile} />
+              <SampleDatasets
+                onPick={(f) => setFile(f)}
+                samples={[
+                  { label: 'play_tennis.csv', path: '/data/play_tennis.csv' },
+                  { label: 'decision_tree_loan.csv', path: '/data/decision_tree_loan.csv' },
+                  { label: 'decision_tree_mushroom.csv', path: '/data/decision_tree_mushroom.csv' },
+                ]}
+              />
             </div>
             <div>
               <Label className="mb-1 block">Thuộc tính mục tiêu</Label>
@@ -121,4 +130,3 @@ export default function DecisionTreePage() {
     </div>
   )
 }
-

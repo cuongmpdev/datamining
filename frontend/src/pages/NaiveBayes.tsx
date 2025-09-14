@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/Label'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { apiNaiveBayes, apiPreview } from '@/lib/api'
+import { SampleDatasets } from '@/components/SampleDatasets'
 
 export default function NaiveBayesPage() {
   const [file, setFile] = React.useState<File | null>(null)
@@ -51,6 +52,20 @@ export default function NaiveBayesPage() {
             <div className="md:col-span-2">
               <Label>Tệp dữ liệu</Label>
               <FileUploader file={file} onChange={setFile} />
+              <SampleDatasets
+                onPick={(f) => {
+                  setFile(f)
+                  // Tự động chọn biến thể phù hợp theo tên tệp
+                  if (f.name.toLowerCase().includes('multinomial')) setVariant('multinomial')
+                  else setVariant('gaussian')
+                }}
+                samples={[
+                  { label: 'naive_bayes_gaussian.csv', path: '/data/naive_bayes_gaussian.csv' },
+                  { label: 'naive_bayes_gaussian2.csv', path: '/data/naive_bayes_gaussian2.csv' },
+                  { label: 'naive_bayes_multinomial.csv', path: '/data/naive_bayes_multinomial.csv' },
+                  { label: 'naive_bayes_multinomial2.csv', path: '/data/naive_bayes_multinomial2.csv' },
+                ]}
+              />
             </div>
             <div>
               <Label className="mb-1 block">Thuộc tính mục tiêu</Label>
@@ -102,4 +117,3 @@ export default function NaiveBayesPage() {
     </div>
   )
 }
-
