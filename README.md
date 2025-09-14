@@ -1,4 +1,4 @@
-Data Mining Web — Tiếng Việt
+Data Mining
 
 Tổng quan
 - Frontend: React + Tailwind (mẫu theo shadcn), có sidebar trái để chọn thuật toán.
