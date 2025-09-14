@@ -8,8 +8,6 @@ Tổng quan
   - Decision Tree: ID3 dùng Entropy/Information Gain, hỗ trợ ngưỡng cho thuộc tính số
   - Reduct: Rough Set QuickReduct (độ phụ thuộc γ và vùng dương tính)
 
-Nếu học phần của bạn yêu cầu biến thể cụ thể (ví dụ C4.5 với Gain Ratio, hay công thức làm mịn Laplace khác), hãy cho biết để mình điều chỉnh.
-
 Cấu trúc dự án
 - backend: máy chủ FastAPI và mã thuật toán
 - frontend: ứng dụng React, mỗi thuật toán có một trang cấu hình/ chạy riêng
@@ -78,15 +76,3 @@ Ghi chú về shadcn/ui
   - npx shadcn@latest init
   - npx shadcn@latest add button input label card select ...
   - Thay thế các import ở `src/components/ui`
-
-Mẹo & xử lý sự cố
-- 404/Network khi gọi API từ frontend: kiểm tra backend đã chạy ở cổng 8000 và biến `VITE_API_BASE` trỏ đúng; bật CORS đã được cấu hình cho phát triển.
-- CSV không hiện đúng cột số: xem endpoint preview để biết kiểu suy luận; đảm bảo dữ liệu là số (dấu phẩy thập phân dùng dấu `.`).
-- Multinomial NB báo lỗi/cho kết quả lạ: kiểm tra dữ liệu không âm; chọn đúng biến thể Multinomial.
-- Node/PNPM lỗi build: đảm bảo Node 18+; chạy `npm install` lại.
-
-Tùy chỉnh tiếp theo (tuỳ chọn)
-- Chuyển tiêu chí cây sang Gain Ratio (C4.5) nếu học phần yêu cầu.
-- Thêm trực quan hoá K-Means và confusion matrix.
-- Thêm tách train/test có stratified và các thước đo.
-- Hỗ trợ phân cụm phân cấp nếu cần.
