@@ -1,72 +1,92 @@
-Data Mining Web Toolkit (React + FastAPI)
+Data Mining Web — Tiếng Việt
 
-Overview
-- Frontend: React + Tailwind (shadcn-ready) with a left sidebar to select algorithms.
-- Backend: FastAPI with endpoints implementing four algorithms from scratch:
-  - Clustering: K-Means (SSE objective, k-means++ init)
-  - Bayes: Naive Bayes (Gaussian and Multinomial)
-  - Decision Tree: ID3 using Entropy/Information Gain, supports numeric thresholds
-  - Reduct: Rough Set QuickReduct (dependency degree γ and positive region)
+Tổng quan
+- Frontend: React + Tailwind (mẫu theo shadcn), có sidebar trái để chọn thuật toán.
+- Backend: FastAPI triển khai 4 thuật toán từ đầu (không dùng thư viện ML):
+  - Clustering: K-Means (mục tiêu SSE, khởi tạo k-means++)
+  - Bayes: Naive Bayes (Gaussian và Multinomial)
+  - Decision Tree: ID3 dùng Entropy/Information Gain, hỗ trợ ngưỡng cho thuộc tính số
+  - Reduct: Rough Set QuickReduct (độ phụ thuộc γ và vùng dương tính)
 
-This aligns with typical course formulas in the attached PDFs. If your course requires specific variants (e.g., C4.5 with Gain Ratio for trees, or specific Laplace smoothing form), let me know and I will adapt.
+Nếu học phần của bạn yêu cầu biến thể cụ thể (ví dụ C4.5 với Gain Ratio, hay công thức làm mịn Laplace khác), hãy cho biết để mình điều chỉnh.
 
-Project Structure
-- backend: FastAPI server and algorithms
-- frontend: React app with sidebar and forms per algorithm
-- data: sample CSV files for quick testing
+Cấu trúc dự án
+- backend: máy chủ FastAPI và mã thuật toán
+- frontend: ứng dụng React, mỗi thuật toán có một trang cấu hình/ chạy riêng
+- data: một số CSV ví dụ ở gốc repo (tham khảo); bản dùng trong UI nằm ở `frontend/public/data`
 
-Backend: Run Locally
-1) Create a virtualenv and install deps
+Yêu cầu hệ thống
+- Python 3.9+ (khuyên dùng 3.10/3.11)
+- Node.js 18+ và npm
+
+Chạy Backend (FastAPI)
+1) Tạo môi trường ảo và cài phụ thuộc
    - cd backend
-   - python3 -m venv .venv && source .venv/bin/activate (or .venv\Scripts\activate on Windows)
+   - python3 -m venv .venv && source .venv/bin/activate  (Windows: .venv\Scripts\activate)
    - pip install -r requirements.txt
-2) Start API server
+2) Khởi động API server
    - uvicorn app:app --reload --port 8000
-3) API endpoints
-   - GET /api/health
-   - POST /api/preview (multipart: file)
-   - POST /api/kmeans (multipart: file, k, [max_iter, tol, columns, random_state])
-   - POST /api/naive-bayes (multipart: file, target, [variant=gaussian|multinomial, alpha, feature_columns])
-   - POST /api/decision-tree (multipart: file, target, [max_depth, min_samples_split])
-   - POST /api/reduct (multipart: file, decision, [conditional])
+3) Kiểm tra nhanh
+   - Mở http://localhost:8000/api/health → {"status":"ok"}
 
-Frontend: Run Locally
-1) Install deps
+API endpoints
+- GET /api/health
+- POST /api/preview  (multipart: file)
+- POST /api/kmeans  (multipart: file, k, [max_iter, tol, columns, random_state])
+- POST /api/naive-bayes  (multipart: file, target, [variant=gaussian|multinomial, alpha, feature_columns])
+- POST /api/decision-tree  (multipart: file, target, [max_depth, min_samples_split])
+- POST /api/reduct  (multipart: file, decision, [conditional])
+
+Chạy Frontend (React + Vite)
+1) Cài phụ thuộc
    - cd frontend
    - npm install
-2) Start dev server
-   - npm run dev (default: http://localhost:5173)
-3) Configure API base (optional)
-   - Create .env with VITE_API_BASE=http://localhost:8000
+2) Cấu hình API base (tuỳ chọn, mặc định http://localhost:8000)
+   - Tạo file `.env` với dòng: `VITE_API_BASE=http://localhost:8000`
+3) Chạy dev server
+   - npm run dev (mặc định: http://localhost:5173)
 
-Notes on shadcn/ui
-- The UI uses Tailwind with small utility components (Button, Input, Card) compatible with shadcn patterns.
-- If you want to replace them with official shadcn/ui components:
+Sử dụng giao diện
+- Mỗi trang thuật toán cho phép:
+  1) Tải lên CSV từ máy (nút “Chọn CSV”), hoặc
+  2) Chọn nhanh dữ liệu mẫu phù hợp thuật toán (các nút ngay dưới ô chọn tệp).
+- Quy ước chung: cột mục tiêu/nhãn mặc định là cột cuối cùng, bạn có thể đổi trong dropdown.
+- Naive Bayes: khi chọn dữ liệu mẫu có chữ “multinomial” trong tên, trang sẽ tự chuyển sang biến thể Multinomial; ngược lại là Gaussian.
+
+Dữ liệu CSV mẫu (hiển thị theo từng trang)
+- Decision Tree: `play_tennis.csv`, `decision_tree_loan.csv`, `decision_tree_mushroom.csv`
+- K-Means: `kmeans_points.csv`, `kmeans_points_b.csv`, `kmeans_points_c.csv`
+- Naive Bayes: `naive_bayes_gaussian.csv`, `naive_bayes_gaussian2.csv`, `naive_bayes_multinomial.csv`, `naive_bayes_multinomial2.csv`
+- Reduct: `play_tennis.csv`, `decision_tree_loan.csv`, `decision_tree_mushroom.csv`
+
+Kỳ vọng CSV
+- Tệp CSV mã hoá UTF-8, có hàng tiêu đề (header) ở dòng đầu tiên.
+- Endpoint preview sẽ suy luận kiểu cột (numeric vs categorical). Khi ép kiểu số, giá trị thiếu sẽ mặc định thành 0.
+- Lưu ý cho Multinomial NB: các đặc trưng phải không âm (count/ tần suất).
+
+Chi tiết thuật toán (tóm tắt)
+- K-Means: Tối thiểu SSE; khởi tạo k-means++ để hội tụ tốt hơn; dừng khi dịch chuyển tâm ≤ `tol` hoặc chạm `max_iter`.
+- Naive Bayes:
+  - Gaussian: Tính mean/variance theo lớp cho mỗi đặc trưng số; cộng log-likelihood và log-prior.
+  - Multinomial: Dựa trên đếm, có làm mịn Laplace α; yêu cầu đặc trưng không âm.
+- Decision Tree (ID3): Dùng entropy & information gain. Với cột số, thử các ngưỡng giữa giá trị khi nhãn thay đổi. Dự đoán bằng duyệt cây.
+- Reduct (Rough Set): QuickReduct tham lam, tối đa hoá γ_R(D) đến khi đạt γ_C(D); dùng positive region và kiểm tra dư thừa.
+
+Ghi chú về shadcn/ui
+- UI dùng Tailwind với các component nhỏ (Button, Input, Card) theo phong cách shadcn.
+- Nếu muốn thay bằng shadcn/ui chính thức:
   - npx shadcn@latest init
   - npx shadcn@latest add button input label card select ...
-  - Replace usages under src/components/ui
+  - Thay thế các import ở `src/components/ui`
 
-CSV Expectations
-- Upload a UTF-8 CSV with headers in the first row.
-- Preview endpoint infers column types (numeric vs categorical). Missing values default to 0 in numeric casting.
+Mẹo & xử lý sự cố
+- 404/Network khi gọi API từ frontend: kiểm tra backend đã chạy ở cổng 8000 và biến `VITE_API_BASE` trỏ đúng; bật CORS đã được cấu hình cho phát triển.
+- CSV không hiện đúng cột số: xem endpoint preview để biết kiểu suy luận; đảm bảo dữ liệu là số (dấu phẩy thập phân dùng dấu `.`).
+- Multinomial NB báo lỗi/cho kết quả lạ: kiểm tra dữ liệu không âm; chọn đúng biến thể Multinomial.
+- Node/PNPM lỗi build: đảm bảo Node 18+; chạy `npm install` lại.
 
-Algorithm Details (High Level)
-- K-Means: Minimizes SSE. Initialization via k-means++ to improve convergence. Stops when centroid shift ≤ tol or max_iter.
-- Naive Bayes:
-  - Gaussian: Per-class mean/variance for each numeric feature; log-likelihoods summed with log-priors.
-  - Multinomial: Count-based with Laplace smoothing α; requires non-negative features.
-- Decision Tree (ID3): Uses entropy and information gain. For numeric features, selects best threshold between unique sorted values where class changes. Predicts by traversing the tree.
-- Reduct (Rough Set): QuickReduct greedy selection maximizing dependency degree γ_R(D) until reaching γ_C(D). Computes positive region via indiscernibility classes; includes redundancy check.
-
-Next Adjustments (if needed)
-- Switch tree criterion to Gain Ratio (C4.5) if your course requires.
-- Add k-means visualization and confusion matrices.
-- Add stratified train/test split and metrics.
-- Support hierarchical clustering if covered in your slides.
-Sample CSVs
-- `data/kmeans_points.csv`: 2D numeric points with 3 clear clusters. Use with K-Means, select both `x` and `y`.
-- `data/naive_bayes_gaussian.csv`: Numeric features (`height`,`weight`) with class `label` in the last column. Use Naive Bayes (Gaussian), set target to `label`.
-- `data/naive_bayes_multinomial.csv`: Count features (`free,offer,click,meeting,project`) with target `label` (spam/ham). Use Naive Bayes (Multinomial), target `label`.
-- `data/play_tennis.csv`: Categorical attributes with decision `Play` in the last column. Use for Decision Tree (ID3) and Reduct.
-
-Tip: In the UI pages, the target defaults to the last column. You can change it from the dropdown.
+Tùy chỉnh tiếp theo (tuỳ chọn)
+- Chuyển tiêu chí cây sang Gain Ratio (C4.5) nếu học phần yêu cầu.
+- Thêm trực quan hoá K-Means và confusion matrix.
+- Thêm tách train/test có stratified và các thước đo.
+- Hỗ trợ phân cụm phân cấp nếu cần.
