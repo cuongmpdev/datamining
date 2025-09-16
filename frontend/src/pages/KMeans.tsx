@@ -15,6 +15,7 @@ export default function KMeansPage() {
   const [columns, setColumns] = React.useState<string[]>([])
   const [loading, setLoading] = React.useState(false)
   const [result, setResult] = React.useState<any | null>(null)
+  const [originalData, setOriginalData] = React.useState<number[][] | null>(null)
 
   React.useEffect(() => {
     if (!file) { setPreview(null); setColumns([]); return }
@@ -31,6 +32,12 @@ export default function KMeansPage() {
     if (!file || !preview) return
     setLoading(true)
     try {
+      // Extract original data points from preview for display purposes
+      const dataPoints = preview.sample.map((row: any) =>
+        columns.map((col: string) => parseFloat(row[col]) || 0)
+      )
+      setOriginalData(dataPoints)
+
       const res = await apiKMeans(file, { k, columns: columns.join(',') })
       setResult(res)
     } catch (e) {
@@ -106,21 +113,86 @@ export default function KMeansPage() {
         </Card>
       )}
 
-      {result && (
+      {result && originalData && (
         <Card>
           <CardHeader>
-            <div className="font-semibold">Kết quả</div>
+            <div className="font-semibold">Kết quả phân cụm</div>
+            <div className="text-sm text-gray-600">
+              Inertia: <b>{result.inertia.toFixed(4)}</b> | Số lần lặp: <b>{result.iterations}</b>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-sm">Inertia: <b>{result.inertia.toFixed(4)}</b> | Lặp: {result.iterations}</div>
-            <div className="mt-3 space-y-2">
-              <div className="font-medium">Tâm cụm:</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {result.centroids.map((c: number[], i: number) => (
-                  <div key={i} className="rounded border p-2 text-sm bg-gray-50">
-                    Cụm {i}: [{c.map((v) => v.toFixed(4)).join(', ')}]
-                  </div>
-                ))}
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-200 rounded-lg">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">
+                      Cụm
+                    </th>
+                    <th className="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">
+                      Các điểm trong cụm
+                    </th>
+                    <th className="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">
+                      Trọng tâm
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.centroids.map((centroid: number[], clusterIndex: number) => {
+                    // Group points by cluster
+                    const clusterPoints = originalData
+                      .map((point, pointIndex) => ({ point, pointIndex }))
+                      .filter(({ pointIndex }) => result.labels[pointIndex] === clusterIndex)
+                      .map(({ point, pointIndex }) => ({ point, pointIndex: pointIndex + 1 }));
+
+                    return (
+                      <tr key={clusterIndex} className="hover:bg-gray-50">
+                        <td className="border border-gray-200 px-4 py-3 font-medium text-center">
+                          <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-800 font-semibold">
+                            {clusterIndex + 1}
+                          </div>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3">
+                          <div className="space-y-1">
+                            {clusterPoints.length > 0 ? (
+                              clusterPoints.map(({ point, pointIndex }) => (
+                                <div key={pointIndex} className="text-sm bg-gray-100 rounded px-2 py-1 inline-block mr-2 mb-1">
+                                  Điểm {pointIndex}: [{point.map(v => v.toFixed(2)).join(', ')}]
+                                </div>
+                              ))
+                            ) : (
+                              <span className="text-gray-500 italic">Không có điểm nào</span>
+                            )}
+                          </div>
+                          <div className="mt-2 text-xs text-gray-600">
+                            Số điểm: <b>{clusterPoints.length}</b>
+                          </div>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3">
+                          <div className="bg-green-50 rounded px-3 py-2 font-mono text-sm">
+                            [{centroid.map(v => v.toFixed(4)).join(', ')}]
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Summary statistics */}
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="bg-blue-50 rounded p-3">
+                <div className="font-medium text-blue-800">Tổng số cụm</div>
+                <div className="text-xl font-bold text-blue-900">{result.centroids.length}</div>
+              </div>
+              <div className="bg-green-50 rounded p-3">
+                <div className="font-medium text-green-800">Tổng số điểm</div>
+                <div className="text-xl font-bold text-green-900">{originalData.length}</div>
+              </div>
+              <div className="bg-purple-50 rounded p-3">
+                <div className="font-medium text-purple-800">Inertia</div>
+                <div className="text-xl font-bold text-purple-900">{result.inertia.toFixed(2)}</div>
               </div>
             </div>
           </CardContent>

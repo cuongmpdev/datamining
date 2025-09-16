@@ -1,49 +1,30 @@
 from __future__ import annotations
 
-import math
 import random
 from typing import List, Tuple, Optional
+import numpy as np
 
 
-def _squared_distance(a: List[float], b: List[float]) -> float:
-    return sum((x - y) ** 2 for x, y in zip(a, b))
+def _generate_matrix(rows: int, cols: int, rng: random.Random) -> np.ndarray:
 
+    if cols < rows:
+        raise ValueError("Number of points must be >= number of clusters")
 
-def _mean(points: List[List[float]]) -> List[float]:
-    if not points:
-        return []
-    n = len(points[0])
-    acc = [0.0] * n
-    for p in points:
-        for i in range(n):
-            acc[i] += p[i]
-    return [v / len(points) for v in acc]
+    # Initialize zero matrix for partitioning
+    matrix = np.zeros((rows, cols), dtype=int)
 
+    # Randomly assign one point to each cluster to ensure no empty clusters
+    chosen_cols = rng.sample(range(cols), rows)
+    for row in range(rows):
+        matrix[row, chosen_cols[row]] = 1
 
-def _init_kmeans_plus_plus(X: List[List[float]], k: int, rng: random.Random) -> List[List[float]]:
-    # Choose the first center uniformly at random
-    centers = [list(rng.choice(X))]
-    # Choose remaining centers with probability proportional to D(x)^2
-    while len(centers) < k:
-        distances = []
-        for x in X:
-            d2 = min(_squared_distance(x, c) for c in centers)
-            distances.append(d2)
-        total = sum(distances)
-        if total == 0:
-            # All points identical; just duplicate
-            centers.append(list(centers[0]))
-            continue
-        r = rng.random() * total
-        cum = 0.0
-        idx = 0
-        for i, d in enumerate(distances):
-            cum += d
-            if cum >= r:
-                idx = i
-                break
-        centers.append(list(X[idx]))
-    return centers
+    # Assign remaining points to random clusters
+    for col in range(cols):
+        if 1 not in matrix[:, col]:
+            row = rng.randint(0, rows - 1)
+            matrix[row, col] = 1
+    
+    return matrix
 
 
 def kmeans(
@@ -54,62 +35,68 @@ def kmeans(
     init: str = "kmeans++",
     random_state: Optional[int] = None,
 ) -> Tuple[List[List[float]], List[int], float, int]:
-    """
-    Simple K-Means clustering from scratch.
-
-    Returns (centroids, labels, inertia, n_iter)
-    - centroids: list of k centroids
-    - labels: cluster index for each sample
-    - inertia: sum of squared distances to closest centroid
-    - n_iter: iterations performed
-    """
     if k <= 0:
         raise ValueError("k must be > 0")
     if not X:
         return [], [], 0.0, 0
-    n_features = len(X[0])
+
+    # Convert to numpy array for efficient computation
+    points = np.array(X)
+    n = len(points)
+    
+    # Set up random number generator
     rng = random.Random(random_state)
-
-    # Initialize centers
-    if init == "random":
-        centers = [list(p) for p in rng.sample(X, k)]
-    else:
-        centers = _init_kmeans_plus_plus(X, k, rng)
-
-    labels = [0] * len(X)
+    
+    # Generate initial partition matrix
+    ma_tran_phan_hoach = _generate_matrix(k, n, rng)
+    
+    # Main K-means iteration loop
     for it in range(1, max_iter + 1):
-        # Assign step
-        for i, x in enumerate(X):
-            best_idx = 0
-            best_dist = _squared_distance(x, centers[0])
-            for j in range(1, k):
-                d = _squared_distance(x, centers[j])
-                if d < best_dist:
-                    best_dist = d
-                    best_idx = j
-            labels[i] = best_idx
-
-        # Update step
-        new_centers: List[List[float]] = []
-        shift = 0.0
-        for j in range(k):
-            cluster_points = [X[i] for i, lab in enumerate(labels) if lab == j]
-            if cluster_points:
-                new_c = _mean(cluster_points)
+        # Calculate centroids for each cluster
+        danh_sach_trong_tam = []
+        
+        for i in range(k):
+            # Find indices of points belonging to cluster i
+            idxs = np.where(ma_tran_phan_hoach[i] == 1)[0]
+            
+            if len(idxs) > 0:
+                diem_trong_cum = points[idxs]  # Points in current cluster
+                # Calculate centroid as mean of cluster points
+                trong_tam = diem_trong_cum.mean(axis=0)
             else:
                 # Empty cluster: reinitialize to a random point
-                new_c = list(rng.choice(X))
-            shift = max(shift, math.sqrt(_squared_distance(new_c, centers[j])))
-            new_centers.append(new_c)
+                trong_tam = points[rng.randint(0, n - 1)].copy()
+                
+            danh_sach_trong_tam.append(trong_tam)
+        
+        # Convert centroids to numpy array
+        centroids = np.array(danh_sach_trong_tam)
+        
+        # Calculate distances from each point to each centroid
+        distances = np.linalg.norm(points[:, None, :] - centroids[None, :, :], axis=2)
+        
+        # Assign each point to the nearest centroid
+        labels = np.argmin(distances, axis=1)
 
-        centers = new_centers
-        if shift <= tol:
+        # Create new partition matrix based on updated assignments
+        ma_tran_phan_hoach_moi = np.zeros((k, n), dtype=int)
+        for idx, label in enumerate(labels):
+            ma_tran_phan_hoach_moi[label, idx] = 1
+        
+        # Check for convergence (no changes in assignments)
+        if np.array_equal(ma_tran_phan_hoach, ma_tran_phan_hoach_moi):
             break
+        else:
+            ma_tran_phan_hoach = ma_tran_phan_hoach_moi
 
-    # Compute inertia
+    # Calculate inertia (sum of squared distances to centroids)
     inertia = 0.0
-    for i, x in enumerate(X):
-        inertia += _squared_distance(x, centers[labels[i]])
+    for i, point in enumerate(points):
+        cluster_center = centroids[labels[i]]
+        inertia += np.sum((point - cluster_center) ** 2)
 
-    return centers, labels, inertia, it
+    # Convert results to expected format
+    centroids_list = [centroid.tolist() for centroid in centroids]
+    labels_list = labels.tolist()
 
+    return centroids_list, labels_list, float(inertia), it
