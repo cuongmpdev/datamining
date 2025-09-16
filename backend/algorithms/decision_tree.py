@@ -1,11 +1,72 @@
 from __future__ import annotations
 
 import math
+import numpy as np
 from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 
+def calculate_entropy(data: List[Dict[str, Any]], target: str) -> float:
+    if not data:
+        return 0.0
+    
+    # Extract target values
+    target_values = [row[target] for row in data]
+    counts = Counter(target_values)
+    total_samples = len(data)
+    
+    entropy = 0.0
+    for count in counts.values():
+        if count > 0:
+            p = count / total_samples
+            entropy -= p * np.log2(p)
+    
+    return entropy
+
+
+def calculate_information_gain(data: List[Dict[str, Any]], feature: str, target: str, initial_entropy: float) -> float:
+    if not data:
+        return 0.0
+    
+    # Group data by feature values
+    feature_groups: Dict[Any, List[Dict[str, Any]]] = {}
+    for row in data:
+        feature_value = row[feature]
+        if feature_value not in feature_groups:
+            feature_groups[feature_value] = []
+        feature_groups[feature_value].append(row)
+    
+    # Calculate weighted entropy
+    weighted_entropy = 0.0
+    total_samples = len(data)
+    
+    for subset in feature_groups.values():
+        p = len(subset) / total_samples
+        subset_entropy = calculate_entropy(subset, target)
+        weighted_entropy += p * subset_entropy
+    
+    return initial_entropy - weighted_entropy
+
+
+def find_best_feature(data: List[Dict[str, Any]], features: List[str], target: str) -> Tuple[Optional[str], float]:
+    if not data or not features:
+        return None, 0.0
+    
+    initial_entropy = calculate_entropy(data, target)
+    max_gain = -1.0
+    best_feature = None
+    
+    for feature in features:
+        gain = calculate_information_gain(data, feature, target, initial_entropy)
+        if gain > max_gain:
+            max_gain = gain
+            best_feature = feature
+    
+    return best_feature, max_gain
+
+
+# Legacy entropy function for compatibility
 def entropy(labels: List[Any]) -> float:
     n = len(labels)
     if n == 0:
@@ -27,6 +88,76 @@ def information_gain(parent_labels: List[Any], splits: List[List[Any]]) -> float
             continue
         remainder += (len(split) / n) * entropy(split)
     return H_parent - remainder
+
+
+class ID3DecisionTree:
+
+    def __init__(self, data: List[Dict[str, Any]], features: List[str], target: str):
+        self.data = data
+        self.features = features
+        self.target = target
+        self.tree = self.build_tree(self.data, self.features)
+        self.initial_entropy = calculate_entropy(self.data, self.target)
+    
+    def build_tree(self, data: List[Dict[str, Any]], features: List[str]) -> Any:
+        if not data:
+            return Counter([row[self.target] for row in self.data]).most_common(1)[0][0]
+        
+        # Step 1: Check if all samples belong to one class
+        target_values = [row[self.target] for row in data]
+        unique_targets = list(set(target_values))
+        
+        if len(unique_targets) == 1:
+            return unique_targets[0]
+        
+        # Step 2: If no more features to split on
+        if not features:
+            return Counter(target_values).most_common(1)[0][0]
+        
+        # Step 3: Find the best feature to split on
+        best_feature, max_gain = find_best_feature(data, features, self.target)
+        
+        if best_feature is None or max_gain <= 0:
+            return Counter(target_values).most_common(1)[0][0]
+        
+        # Step 4: Create tree structure
+        tree = {best_feature: {}}
+        remaining_features = [f for f in features if f != best_feature]
+        
+        # Get unique values for the best feature
+        feature_values = list(set(row[best_feature] for row in data))
+        
+        # Step 5: Create subtree for each value of the best feature
+        for value in feature_values:
+            subset = [row for row in data if row[best_feature] == value]
+            
+            if subset:
+                tree[best_feature][value] = self.build_tree(subset, remaining_features)
+            else:
+                # If subset is empty, use the most common class from parent
+                tree[best_feature][value] = Counter(target_values).most_common(1)[0][0]
+        
+        return tree
+
+
+def predict_with_tree(tree: Any, sample: Dict[str, Any]) -> Any:
+    # If tree is not a dictionary, it's a leaf node
+    if not isinstance(tree, dict):
+        return tree
+    
+    # Get the feature name (root of current subtree)
+    feature_name = list(tree.keys())[0]
+    sub_tree = tree[feature_name]
+    
+    # Get the feature value from the sample
+    feature_value = sample.get(feature_name)
+    
+    # Traverse to the appropriate subtree
+    if feature_value in sub_tree:
+        return predict_with_tree(sub_tree[feature_value], sample)
+    else:
+        # If feature value not seen during training, return default
+        return "Unknown"
 
 
 @dataclass
@@ -60,6 +191,24 @@ class Node:
                 "is_numeric": False,
                 "children": {k: v.to_dict() for k, v in (self.children or {}).items()},
             }
+    
+    @classmethod
+    def from_id3_tree(cls, tree: Any, feature_name: Optional[str] = None) -> "Node":
+        """Convert ID3 dictionary tree to Node structure."""
+        if not isinstance(tree, dict):
+            # Leaf node
+            return cls(prediction=tree)
+        
+        # Get the feature name
+        if feature_name is None:
+            feature_name = list(tree.keys())[0]
+        
+        # Create children from dictionary
+        children = {}
+        for value, subtree in tree[feature_name].items():
+            children[value] = cls.from_id3_tree(subtree)
+        
+        return cls(feature=feature_name, is_numeric=False, children=children)
 
 
 def majority_label(labels: List[Any]) -> Any:
@@ -106,6 +255,62 @@ def build_tree(
     max_depth: Optional[int] = None,
     min_samples_split: int = 2,
 ) -> Node:
+    
+    # Prepare data for ID3 algorithm
+    # Combine X and y into a single dataset format
+    if not X or not y:
+        return Node(prediction="Unknown")
+    
+    # Add target variable to the dataset
+    dataset = []
+    target_name = "target"  # Internal target name
+    
+    for i, row in enumerate(X):
+        combined_row = dict(row)
+        combined_row[target_name] = y[i]
+        dataset.append(combined_row)
+    
+    # Get feature names (excluding the target)
+    features = [f for f in feature_types.keys()]
+    
+    # Check for numeric features - if any exist, use hybrid approach
+    has_numeric = any(ftype == 'numeric' for ftype in feature_types.values())
+    
+    if has_numeric:
+        # Use original algorithm for datasets with numeric features
+        return _build_tree_original(X, y, feature_types, max_depth, min_samples_split)
+    else:
+        # Use pure ID3 algorithm for categorical features
+        try:
+            # Create ID3 decision tree
+            id3_tree = ID3DecisionTree(dataset, features, target_name)
+            
+            # Convert ID3 tree to Node structure for API compatibility
+            root_node = Node.from_id3_tree(id3_tree.tree)
+            
+            # Add tree structure information for better API response
+            if hasattr(root_node, 'to_dict'):
+                tree_dict = root_node.to_dict()
+                # Add ID3-specific information
+                tree_dict["algorithm"] = "ID3"
+                tree_dict["initial_entropy"] = float(id3_tree.initial_entropy)
+                tree_dict["raw_tree"] = id3_tree.tree
+            
+            return root_node
+            
+        except Exception as e:
+            # Fallback to original algorithm if ID3 fails
+            return _build_tree_original(X, y, feature_types, max_depth, min_samples_split)
+
+
+def _build_tree_original(
+    X: List[Dict[str, Any]],
+    y: List[Any],
+    feature_types: Dict[str, str],
+    max_depth: Optional[int] = None,
+    min_samples_split: int = 2,
+) -> Node:
+    
     # Stopping conditions
     if len(set(y)) == 1:
         return Node(prediction=y[0])
@@ -161,12 +366,12 @@ def build_tree(
             else:
                 right_X.append(row)
                 right_y.append(label)
-        left_child = build_tree(
+        left_child = _build_tree_original(
             left_X, left_y, feature_types,
             None if max_depth is None else max_depth - 1,
             min_samples_split,
         )
-        right_child = build_tree(
+        right_child = _build_tree_original(
             right_X, right_y, feature_types,
             None if max_depth is None else max_depth - 1,
             min_samples_split,
@@ -183,7 +388,7 @@ def build_tree(
         for val, idxs in (best_split or {}).items():
             child_X = [X[i] for i in idxs]
             child_y = [y[i] for i in idxs]
-            child = build_tree(
+            child = _build_tree_original(
                 child_X, child_y, feature_types,
                 None if max_depth is None else max_depth - 1,
                 min_samples_split,
@@ -193,20 +398,36 @@ def build_tree(
 
 
 def predict_tree(root: Node, row: Dict[str, Any]) -> Any:
+
     node = root
+    
+    # Handle prediction traversal
     while node.prediction is None:
-        if node.is_numeric:
-            v = float(row[node.feature])
-            if v <= (node.threshold or 0.0):
-                node = node.left  # type: ignore
-            else:
-                node = node.right  # type: ignore
+        if node.is_numeric and node.threshold is not None:
+            # Numeric split (original algorithm)
+            try:
+                v = float(row.get(node.feature, 0))
+                if v <= node.threshold:
+                    node = node.left  # type: ignore
+                else:
+                    node = node.right  # type: ignore
+            except (ValueError, TypeError):
+                # If conversion fails, return default
+                return "Unknown"
         else:
+            # Categorical split (ID3 algorithm)
             key = row.get(node.feature)
             if key in (node.children or {}):
                 node = (node.children or {})[key]
             else:
-                # unseen category: fallback
-                return None
+                # Unseen category: fallback to most common prediction
+                # Try to find a leaf node to get a reasonable default
+                if node.children:
+                    # Get first available child's prediction
+                    first_child = next(iter(node.children.values()))
+                    if first_child.prediction is not None:
+                        return first_child.prediction
+                return "Unknown"
+    
     return node.prediction
 
