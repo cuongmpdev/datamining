@@ -35,7 +35,13 @@ export function SampleDatasets({ onPick, samples = DEFAULT_SAMPLES }: { onPick: 
       <Label className="mb-2 block">Hoặc chọn dữ liệu mẫu</Label>
       <div className="flex flex-wrap gap-2">
         {samples.map((s) => (
-          <Button key={s.path} variant="outline" size="sm" onClick={() => pickSample(s)} disabled={loadingPath !== null}>
+          <Button
+            key={s.path}
+            variant="outline"
+            className="h-8 px-3 text-xs"
+            onClick={() => pickSample(s)}
+            disabled={loadingPath !== null}
+          >
             {loadingPath === s.path ? 'Đang tải...' : s.label}
           </Button>
         ))}
@@ -43,4 +49,3 @@ export function SampleDatasets({ onPick, samples = DEFAULT_SAMPLES }: { onPick: 
     </div>
   )
 }
-

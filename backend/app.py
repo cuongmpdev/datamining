@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from utils.csv_utils import parse_csv_bytes, preview_summary, infer_types, select_columns, split_X_y
+from utils.csv_utils import parse_csv_bytes, preview_summary, infer_types, select_columns
 from algorithms.kmeans import kmeans
-from algorithms.naive_bayes import GaussianNB, MultinomialNB
+from algorithms.naive_bayes import compute_categorical_naive_bayes
 from algorithms.decision_tree import build_tree, predict_tree
 from algorithms.reduct import quick_reduct
 
@@ -67,36 +68,52 @@ async def api_kmeans(
 async def api_naive_bayes(
     file: UploadFile = File(...),
     target: str = Form(...),
-    variant: str = Form("gaussian"),  # 'gaussian' or 'multinomial'
-    alpha: float = Form(1.0),
-    feature_columns: Optional[str] = Form(None),
+    features: Optional[str] = Form(None),
+    evidence: Optional[str] = Form(None),
+    laplace: float = Form(0.0),
 ) -> Dict[str, Any]:
     data = await file.read()
     rows, headers = parse_csv_bytes(data)
-    types = infer_types(rows, headers)
-    if feature_columns:
-        feats = [c.strip() for c in feature_columns.split(",") if c.strip()]
-    else:
-        feats = [h for h in headers if h != target]
 
-    if variant.lower() == "gaussian":
-        X, y = split_X_y(rows, feats, target, cast_numeric=True)
-        clf = GaussianNB().fit(X, y)
-        preds = clf.predict(X)
+    if target not in headers:
+        raise HTTPException(status_code=400, detail="Target column not found in dataset")
+
+    feature_list: List[str]
+    if features:
+        parsed_features: List[str] = []
+        try:
+            loaded = json.loads(features)
+            if isinstance(loaded, list):
+                parsed_features = [str(item) for item in loaded]
+        except json.JSONDecodeError:
+            parsed_features = [c.strip() for c in features.split(",") if c.strip()]
+        feature_list = [f for f in parsed_features if f in headers and f != target]
     else:
-        # multinomial: cast numeric and require non-negative
-        X, y = split_X_y(rows, feats, target, cast_numeric=True)
-        clf = MultinomialNB(alpha=alpha).fit(X, y)
-        preds = clf.predict(X)
-    acc = sum(1 for p, t in zip(preds, y) if p == t) / len(y) if y else 0.0
-    return {
-        "variant": variant,
-        "features": feats,
-        "target": target,
-        "accuracy_train": acc,
-        "predictions": preds,
-        "classes": list(set(y)),
-    }
+        feature_list = [h for h in headers if h != target]
+
+    if not feature_list:
+        raise HTTPException(status_code=400, detail="No feature columns selected")
+
+    evidence_map: Dict[str, Any] = {}
+    if evidence:
+        try:
+            loaded_evidence = json.loads(evidence)
+            if isinstance(loaded_evidence, dict):
+                for key, value in loaded_evidence.items():
+                    if key in headers:
+                        evidence_map[key] = "" if value is None else str(value)
+        except json.JSONDecodeError:
+            pass
+
+    result = compute_categorical_naive_bayes(
+        rows,
+        target=target,
+        features=feature_list,
+        evidence=evidence_map,
+        laplace=laplace,
+    )
+
+    return result
 
 
 @app.post("/api/decision-tree")
@@ -151,4 +168,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
-

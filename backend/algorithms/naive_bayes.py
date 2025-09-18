@@ -1,139 +1,152 @@
 from __future__ import annotations
 
-import math
-from collections import defaultdict
-from typing import List, Dict, Any, Tuple
+from collections import Counter, defaultdict
+from typing import Any, Dict, List, Mapping, Optional
 
 
-class GaussianNB:
-    def __init__(self):
-        self.classes_: List[Any] = []
-        self.class_prior_: Dict[Any, float] = {}
-        self.theta_: Dict[Any, List[float]] = {}
-        self.sigma_: Dict[Any, List[float]] = {}
-
-    def fit(self, X: List[List[float]], y: List[Any]):
-        n = len(X)
-        if n == 0:
-            return self
-        n_features = len(X[0])
-        by_class: Dict[Any, List[List[float]]] = defaultdict(list)
-        for xi, yi in zip(X, y):
-            by_class[yi].append(xi)
-
-        self.classes_ = list(by_class.keys())
-        for c, rows in by_class.items():
-            self.class_prior_[c] = len(rows) / n
-            # mean
-            mu = [0.0] * n_features
-            for row in rows:
-                for j in range(n_features):
-                    mu[j] += row[j]
-            mu = [v / len(rows) for v in mu]
-            self.theta_[c] = mu
-            # variance (with small epsilon to avoid zero)
-            var = [0.0] * n_features
-            for row in rows:
-                for j in range(n_features):
-                    diff = row[j] - mu[j]
-                    var[j] += diff * diff
-            var = [v / max(1, (len(rows) - 1)) for v in var]
-            # add epsilon for numerical stability
-            self.sigma_[c] = [v if v > 1e-9 else 1e-9 for v in var]
-        return self
-
-    @staticmethod
-    def _log_gaussian_pdf(x: float, mu: float, var: float) -> float:
-        # log of normal pdf
-        return -0.5 * (math.log(2 * math.pi * var) + ((x - mu) ** 2) / var)
-
-    def predict_log_proba(self, X: List[List[float]]) -> List[Dict[Any, float]]:
-        results: List[Dict[Any, float]] = []
-        for xi in X:
-            lp: Dict[Any, float] = {}
-            for c in self.classes_:
-                s = math.log(self.class_prior_.get(c, 1e-12))
-                mu = self.theta_[c]
-                var = self.sigma_[c]
-                for j in range(len(xi)):
-                    s += self._log_gaussian_pdf(xi[j], mu[j], var[j])
-                lp[c] = s
-            results.append(lp)
-        return results
-
-    def predict(self, X: List[List[float]]) -> List[Any]:
-        preds: List[Any] = []
-        for lp in self.predict_log_proba(X):
-            # choose argmax class
-            best_c = None
-            best_s = -float("inf")
-            for c, s in lp.items():
-                if s > best_s:
-                    best_s = s
-                    best_c = c
-            preds.append(best_c)
-        return preds
+def _safe_div(num: float, den: float) -> float:
+    return num / den if den else 0.0
 
 
-class MultinomialNB:
-    def __init__(self, alpha: float = 1.0):
-        self.alpha = alpha
-        self.classes_: List[Any] = []
-        self.class_prior_: Dict[Any, float] = {}
-        self.feature_log_prob_: Dict[Any, List[float]] = {}
-        self.feature_count_: Dict[Any, List[float]] = {}
-        self.feature_sum_: Dict[Any, float] = {}
+def _round(value: float, digits: int = 6) -> float:
+    return round(value, digits)
 
-    def fit(self, X: List[List[float]], y: List[Any]):
-        n = len(X)
-        if n == 0:
-            return self
-        n_features = len(X[0])
-        by_class: Dict[Any, List[List[float]]] = defaultdict(list)
-        for xi, yi in zip(X, y):
-            by_class[yi].append(xi)
-        self.classes_ = list(by_class.keys())
 
-        for c, rows in by_class.items():
-            self.class_prior_[c] = len(rows) / n
-            fc = [0.0] * n_features
-            for row in rows:
-                for j in range(n_features):
-                    v = row[j]
-                    if v < 0:
-                        raise ValueError("MultinomialNB requires non-negative feature values.")
-                    fc[j] += v
-            self.feature_count_[c] = fc
-            total = sum(fc)
-            self.feature_sum_[c] = total
-            # Laplace smoothing
-            denom = total + self.alpha * n_features
-            probs = [ (fc[j] + self.alpha) / denom for j in range(n_features) ]
-            self.feature_log_prob_[c] = [ math.log(p) for p in probs ]
-        return self
+def _conditional_prob(
+    count: int,
+    class_total: int,
+    unique_values: int,
+    laplace: float,
+) -> float:
+    denom = class_total + laplace * unique_values
+    return _safe_div(count + laplace, denom)
 
-    def predict_log_proba(self, X: List[List[float]]) -> List[Dict[Any, float]]:
-        results: List[Dict[Any, float]] = []
-        for xi in X:
-            lp: Dict[Any, float] = {}
-            for c in self.classes_:
-                s = math.log(self.class_prior_.get(c, 1e-12))
-                flp = self.feature_log_prob_[c]
-                for j, xij in enumerate(xi):
-                    s += xij * flp[j]
-                lp[c] = s
-            results.append(lp)
-        return results
 
-    def predict(self, X: List[List[float]]) -> List[Any]:
-        preds: List[Any] = []
-        for lp in self.predict_log_proba(X):
-            best_c = None
-            best_s = -float("inf")
-            for c, s in lp.items():
-                if s > best_s:
-                    best_s = s
-                    best_c = c
-            preds.append(best_c)
-        return preds
+def compute_categorical_naive_bayes(
+    rows: List[Dict[str, Any]],
+    target: str,
+    features: List[str],
+    evidence: Optional[Mapping[str, Any]] = None,
+    laplace: float = 0.0,
+) -> Dict[str, Any]:
+    if not features:
+        raise ValueError("features list cannot be empty")
+
+    evidence = dict(evidence or {})
+
+    filtered_rows: List[Dict[str, Any]] = []
+    class_counts: Counter = Counter()
+    for row in rows:
+        clazz = row.get(target)
+        if clazz in (None, ""):
+            continue
+        filtered_rows.append(row)
+        class_counts[clazz] += 1
+
+    total_rows = sum(class_counts.values())
+    classes = list(class_counts.keys())
+
+    priors = {
+        clazz: {
+            "count": count,
+            "prob": _round(_safe_div(count, total_rows)),
+        }
+        for clazz, count in class_counts.items()
+    }
+
+    conditional_counts: Dict[str, Dict[Any, Counter]] = {}
+    for feature in features:
+        value_map: Dict[Any, Counter] = defaultdict(Counter)
+        for row in filtered_rows:
+            clazz = row.get(target)
+            value = row.get(feature)
+            if clazz in (None, "") or value in (None, ""):
+                continue
+            value_map[value][clazz] += 1
+        conditional_counts[feature] = value_map
+
+    conditionals: Dict[str, Any] = {}
+    for feature, value_map in conditional_counts.items():
+        unique_count = len(value_map)
+        per_value: Dict[Any, Dict[Any, Dict[str, float]]] = {}
+        for value, counter in value_map.items():
+            per_class: Dict[Any, Dict[str, float]] = {}
+            for clazz in classes:
+                count = counter.get(clazz, 0)
+                prob_raw = _conditional_prob(count, class_counts[clazz], unique_count, laplace)
+                per_class[clazz] = {
+                    "count": count,
+                    "prob": _round(prob_raw),
+                }
+            per_value[value] = per_class
+        conditionals[feature] = {
+            "unique_count": unique_count,
+            "values": per_value,
+        }
+
+    evidence_filtered = {
+        feature: value
+        for feature, value in evidence.items()
+        if feature in features and value not in (None, "")
+    }
+
+    posterior: Dict[Any, Dict[str, Any]] = {}
+    score_sum = 0.0
+    raw_scores: Dict[Any, float] = {}
+
+    for clazz in classes:
+        prior_raw = _safe_div(class_counts[clazz], total_rows)
+        score = prior_raw
+        components = []
+        for feature in features:
+            if feature not in evidence_filtered:
+                continue
+            value = evidence_filtered[feature]
+            feature_info = conditionals.get(feature, {})
+            value_info = feature_info.get("values", {}).get(value)
+            unique_count = feature_info.get("unique_count", 0)
+            count = 0
+            if value_info is not None:
+                count = value_info.get(clazz, {}).get("count", 0)
+            prob_raw = _conditional_prob(count, class_counts[clazz], unique_count, laplace)
+            score *= prob_raw
+            components.append(
+                {
+                    "feature": feature,
+                    "value": value,
+                    "count": count,
+                    "prob": _round(prob_raw),
+                }
+            )
+        posterior[clazz] = {
+            "prior": _round(prior_raw),
+            "score": score,
+            "components": components,
+        }
+        raw_scores[clazz] = score
+        score_sum += score
+
+    for clazz, info in posterior.items():
+        posterior_prob = _safe_div(raw_scores.get(clazz, 0.0), score_sum)
+        info["score"] = _round(raw_scores.get(clazz, 0.0))
+        info["posterior"] = _round(posterior_prob)
+
+    prediction = None
+    if raw_scores:
+        best_class, best_score = max(raw_scores.items(), key=lambda item: item[1])
+        if best_score > 0.0:
+            prediction = best_class
+
+    return {
+        "row_count": total_rows,
+        "target": target,
+        "features": features,
+        "evidence": evidence_filtered,
+        "priors": priors,
+        "conditionals": conditionals,
+        "posterior": posterior,
+        "prediction": prediction,
+        "classes": classes,
+        "laplace": laplace,
+    }
 

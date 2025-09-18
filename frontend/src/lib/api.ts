@@ -24,13 +24,16 @@ export async function apiKMeans(file: File, params: { k: number; max_iter?: numb
   return res.json()
 }
 
-export async function apiNaiveBayes(file: File, params: { target: string; variant: 'gaussian' | 'multinomial'; alpha?: number; feature_columns?: string }) {
+export async function apiNaiveBayes(
+  file: File,
+  params: { target: string; features: string[]; evidence?: Record<string, string>; laplace?: number }
+) {
   const fd = new FormData()
   fd.append('file', file)
   fd.append('target', params.target)
-  fd.append('variant', params.variant)
-  if (params.alpha != null) fd.append('alpha', String(params.alpha))
-  if (params.feature_columns) fd.append('feature_columns', params.feature_columns)
+  fd.append('features', JSON.stringify(params.features))
+  if (params.evidence) fd.append('evidence', JSON.stringify(params.evidence))
+  if (params.laplace != null) fd.append('laplace', String(params.laplace))
   const res = await fetch(`${API_BASE}/api/naive-bayes`, { method: 'POST', body: fd })
   if (!res.ok) throw new Error('Naive Bayes failed')
   return res.json()
@@ -56,4 +59,3 @@ export async function apiReduct(file: File, params: { decision: string; conditio
   if (!res.ok) throw new Error('Reduct failed')
   return res.json()
 }
-

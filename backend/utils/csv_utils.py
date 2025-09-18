@@ -105,17 +105,23 @@ def preview_summary(rows: List[Dict[str, Any]], headers: List[str], limit: int =
     sample = rows[:limit]
     types = infer_types(rows, headers)
     uniques = {}
+    value_samples = {}
     for h in headers:
-        s = set()
+        seen = set()
+        samples: List[Any] = []
         for row in rows[:1000]:  # cap for speed
             v = row.get(h)
-            s.add(v)
-        uniques[h] = len(s)
+            if v not in seen:
+                seen.add(v)
+                if len(samples) < 25:
+                    samples.append(v)
+        uniques[h] = len(seen)
+        value_samples[h] = samples
     return {
         "headers": headers,
         "types": types,
         "uniques": uniques,
         "sample": sample,
+        "value_samples": value_samples,
         "row_count": len(rows),
     }
-
