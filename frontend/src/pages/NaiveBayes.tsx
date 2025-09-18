@@ -11,24 +11,60 @@ type PreviewInfo = {
   value_samples?: Record<string, Array<string | number | null>>
 }
 
+type PriorInfo = {
+  count: number
+  prob: number
+  numerator: number
+  denominator: number
+}
+
+type ConditionalStat = {
+  count: number
+  prob: number
+  numerator: number
+  denominator: number
+}
+
+type ConditionalInfo = {
+  unique_count: number
+  values: Record<string, Record<string, ConditionalStat>>
+}
+
+type PosteriorComponent = {
+  feature: string
+  value: string | number
+  count: number
+  prob: number
+  numerator: number
+  denominator: number
+  unique_count: number
+}
+
 type PosteriorInfo = {
   prior: number
   score: number
   posterior: number
-  components: Array<{ feature: string; value: string; count: number; prob: number }>
+  components: PosteriorComponent[]
+  prior_numerator: number
+  prior_denominator: number
+  score_raw: number
+  posterior_raw: number
 }
 
 type NaiveBayesResult = {
   target: string
   features: string[]
   evidence: Record<string, string>
-  priors: Record<string, { count: number; prob: number }>
-  conditionals: Record<string, { unique_count: number; values: Record<string, Record<string, { count: number; prob: number }>> }>
+  priors: Record<string, PriorInfo>
+  conditionals: Record<string, ConditionalInfo>
   posterior: Record<string, PosteriorInfo>
   prediction: string | null
   row_count: number
   classes: string[]
+  laplace: number
 }
+
+const DEFAULT_LAPLACE = 1
 
 export default function NaiveBayesPage() {
   const [file, setFile] = React.useState<File | null>(null)
@@ -38,6 +74,7 @@ export default function NaiveBayesPage() {
   const [evidence, setEvidence] = React.useState<Record<string, string>>({})
   const [loading, setLoading] = React.useState(false)
   const [result, setResult] = React.useState<NaiveBayesResult | null>(null)
+  const [pendingLaplace, setPendingLaplace] = React.useState<number | null>(null)
 
   React.useEffect(() => {
     if (!file) {
@@ -109,14 +146,16 @@ export default function NaiveBayesPage() {
 
   const valueSamples = preview?.value_samples ?? {}
 
-  async function onRun() {
+  async function runNaiveBayes(laplaceValue: number) {
     if (!file || !target || !readyToRun) return
     setLoading(true)
+    setPendingLaplace(laplaceValue)
     try {
       const res = await apiNaiveBayes(file, {
         target,
         features: selectedFeatures,
         evidence: Object.fromEntries(selectedFeatures.map((f) => [f, evidence[f]])),
+        laplace: laplaceValue,
       })
       setResult(res)
     } catch (e) {
@@ -124,12 +163,15 @@ export default function NaiveBayesPage() {
       alert('Lỗi khi chạy Naive Bayes')
     } finally {
       setLoading(false)
+      setPendingLaplace(null)
     }
   }
 
   const renderPriors = () => {
     if (!result) return null
     const classes = Object.keys(result.priors)
+    const laplace = result.laplace
+    const classTotal = result.classes.length
     return (
       <div className="mt-4">
         <div className="font-medium mb-2">Bước 1: Ước lượng P(C<sub>i</sub>)</div>
@@ -143,13 +185,26 @@ export default function NaiveBayesPage() {
               </tr>
             </thead>
             <tbody>
-              {classes.map((clazz) => (
-                <tr key={clazz} className="border-t">
-                  <td className="px-3 py-2">{clazz}</td>
-                  <td className="px-3 py-2">{result.priors[clazz].count} / {result.row_count}</td>
-                  <td className="px-3 py-2">{result.priors[clazz].prob}</td>
-                </tr>
-              ))}
+              {classes.map((clazz) => {
+                const info = result.priors[clazz]
+                return (
+                  <tr key={clazz} className="border-t">
+                    <td className="px-3 py-2">{clazz}</td>
+                    <td className="px-3 py-2">{info.count} / {result.row_count}</td>
+                    <td className="px-3 py-2">
+                      {laplace > 0 ? (
+                        <>
+                          ({info.count} + {laplace}) / ({result.row_count} + {laplace} * {classTotal}) = {info.numerator} / {info.denominator} = {info.prob}
+                        </>
+                      ) : (
+                        <>
+                          {info.count} / {result.row_count} = {info.prob}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -163,10 +218,14 @@ export default function NaiveBayesPage() {
     return result.features.map((feature) => {
       const info = result.conditionals[feature]
       const rows = Object.entries(info?.values ?? {})
+      const uniqueCount = info?.unique_count ?? 0
       return (
         <div key={feature} className="mt-6">
           <div className="font-medium mb-2">
             Bước 2: P({feature} | C<sub>i</sub>)
+            {result.laplace > 0 && (
+              <span className="text-gray-500"> — r = {uniqueCount}</span>
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -185,11 +244,24 @@ export default function NaiveBayesPage() {
                   <tr key={`${feature}-${value}`} className="border-t">
                     <td className="px-3 py-2">{value}</td>
                     {classes.map((clazz) => {
-                      const stat = classMap[clazz] ?? { count: 0, prob: 0 }
+                      const stat = classMap[clazz] ?? {
+                        count: 0,
+                        prob: 0,
+                        numerator: result.laplace,
+                        denominator: (result.priors[clazz]?.count ?? 0) + result.laplace * uniqueCount,
+                      }
                       const classCount = result.priors[clazz]?.count ?? 0
                       return (
                         <td key={`${feature}-${value}-${clazz}`} className="px-3 py-2">
-                          {stat.count} / {classCount} → {stat.prob}
+                          {result.laplace > 0 ? (
+                            <>
+                              ({stat.count} + {result.laplace}) / ({classCount} + {result.laplace} * {uniqueCount}) = {stat.numerator} / {stat.denominator} = {stat.prob}
+                            </>
+                          ) : (
+                            <>
+                              {stat.count} / {classCount} = {stat.prob}
+                            </>
+                          )}
                         </td>
                       )
                     })}
@@ -203,26 +275,77 @@ export default function NaiveBayesPage() {
     })
   }
 
+  const renderLaplaceOverview = () => {
+    if (!result || result.laplace <= 0) return null
+    return (
+      <div className="mt-4 text-sm space-y-1">
+        <div className="font-medium">Làm trơn Laplace (α = {result.laplace})</div>
+        <div>Áp dụng để tránh trường hợp P(X<sub>k</sub> | C<sub>i</sub>) = 0 khi đếm bằng 0.</div>
+        <div>
+          P(C<sub>i</sub>) = (|C<sub>i</sub>,D| + α) / (|D| + α * m), với m = {result.classes.length}.
+        </div>
+        <div>
+          P(X<sub>k</sub> = v | C<sub>i</sub>) = (số mẫu v trong C<sub>i</sub> + α) / (|C<sub>i</sub>,D| + α * r<sub>k</sub>), trong đó r<sub>k</sub> là số giá trị rời rạc của thuộc tính.
+        </div>
+      </div>
+    )
+  }
+
   const renderPosterior = () => {
     if (!result) return null
     const entries = Object.entries(result.posterior)
+    const laplace = result.laplace
+    const formatValue = (value: number) => (Number.isFinite(value) ? Number(value).toFixed(6) : '0')
     return (
       <div className="mt-6">
         <div className="font-medium mb-2">Bước 3: Tính P(C<sub>i</sub> | X)</div>
         <div className="space-y-4 text-sm">
-          {entries.map(([clazz, info]) => (
-            <div key={clazz} className="border rounded-md p-3">
-              <div className="font-semibold mb-2">Lớp {clazz}</div>
-              <div>P({clazz}) = {info.prior}</div>
-              {info.components.map((comp) => (
-                <div key={`${clazz}-${comp.feature}`}>
-                  P({comp.feature} = {comp.value} | {clazz}) = {comp.count} / {result.priors[clazz]?.count ?? 0} → {comp.prob}
+          {entries.map(([clazz, info]) => {
+            const priorInfo = result.priors[clazz]
+            const conditionalFractions = info.components.map((comp) => `${comp.numerator}/${comp.denominator || 1}`)
+            const productFraction = [
+              `${info.prior_numerator}/${info.prior_denominator || 1}`,
+              ...conditionalFractions,
+            ].join(' × ')
+            const productProb = [info.prior, ...info.components.map((comp) => comp.prob)].join(' × ')
+            return (
+              <div key={clazz} className="border rounded-md p-3 space-y-1">
+                <div className="font-semibold mb-2">Lớp {clazz}</div>
+                <div>
+                  1.{' '}
+                  {laplace > 0 ? (
+                    <>
+                      P({clazz}) = ({priorInfo.count} + {laplace}) / ({result.row_count} + {laplace} * {result.classes.length}) = {info.prior_numerator} / {info.prior_denominator} = {info.prior}
+                    </>
+                  ) : (
+                    <>
+                      P({clazz}) = {priorInfo.count} / {result.row_count} = {info.prior}
+                    </>
+                  )}
                 </div>
-              ))}
-              <div className="mt-2">Tích xác suất = {info.score}</div>
-              <div>Kết quả chuẩn hóa: P({clazz} | X) = {info.posterior}</div>
-            </div>
-          ))}
+                {info.components.map((comp, index) => (
+                  <div key={`${clazz}-${comp.feature}`}>
+                    {index + 2}.{' '}
+                    {laplace > 0 ? (
+                      <>
+                        P({comp.feature} = {comp.value} | {clazz}) = ({comp.count} + {laplace}) / ({priorInfo.count} + {laplace} * {comp.unique_count}) = {comp.numerator} / {comp.denominator} = {comp.prob}
+                      </>
+                    ) : (
+                      <>
+                        P({comp.feature} = {comp.value} | {clazz}) = {comp.count} / {priorInfo.count} = {comp.prob}
+                      </>
+                    )}
+                  </div>
+                ))}
+                <div className="mt-2">
+                  {info.components.length + 2}. Tích xác suất (không chuẩn hóa) = {productFraction} = {productProb} = {formatValue(info.score_raw)}
+                </div>
+                <div>
+                  {info.components.length + 3}. Kết quả chuẩn hóa: P({clazz} | X) = {formatValue(info.posterior_raw)} ≈ {info.posterior}
+                </div>
+              </div>
+            )
+          })}
         </div>
         {result.prediction && (
           <div className="mt-4 text-sm">
@@ -327,9 +450,16 @@ export default function NaiveBayesPage() {
             </div>
           )}
 
-          <div className="mt-4">
-            <Button onClick={onRun} disabled={!readyToRun || loading}>
-              {loading ? 'Đang tính...' : 'Tính toán Bayes'}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button onClick={() => runNaiveBayes(0)} disabled={!readyToRun || loading}>
+              {loading && pendingLaplace === 0 ? 'Đang tính...' : 'Tính toán Bayes'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => runNaiveBayes(DEFAULT_LAPLACE)}
+              disabled={!readyToRun || loading}
+            >
+              {loading && pendingLaplace === DEFAULT_LAPLACE ? 'Đang làm trơn...' : 'Làm trơn Laplace'}
             </Button>
           </div>
         </CardContent>
@@ -344,6 +474,7 @@ export default function NaiveBayesPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {renderLaplaceOverview()}
             {renderPriors()}
             {renderConditionals()}
             {renderPosterior()}
