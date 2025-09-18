@@ -5,6 +5,10 @@ import numpy as np
 from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+from uuid import uuid4
+import graphviz
+
+from utils.paths import DECISION_TREE_DIR, to_static_url
 
 
 def calculate_entropy(data: List[Dict[str, Any]], target: str) -> float:
@@ -64,6 +68,51 @@ def find_best_feature(data: List[Dict[str, Any]], features: List[str], target: s
             best_feature = feature
     
     return best_feature, max_gain
+
+
+def draw_decision_tree(tree: Any, filename: Optional[str] = None) -> Optional[str]:
+    """Render a categorical (ID3) decision tree dictionary to an image and return the static URL."""
+
+    dot = graphviz.Digraph(comment="Decision Tree", format="png")
+    node_counter = 0
+
+    def add_nodes_edges(sub_tree: Any) -> str:
+        nonlocal node_counter
+        current_id = str(node_counter)
+        node_counter += 1
+
+        if isinstance(sub_tree, dict) and sub_tree:
+            feature_name = next(iter(sub_tree))
+            dot.node(
+                current_id,
+                f"Feature: {feature_name}",
+                shape="ellipse",
+                style="filled",
+                fillcolor="lightblue",
+            )
+
+            for value, child_tree in sub_tree[feature_name].items():
+                child_id = add_nodes_edges(child_tree)
+                dot.edge(current_id, child_id, label=str(value))
+        else:
+            dot.node(
+                current_id,
+                f"Result: {sub_tree}",
+                shape="box",
+                style="filled",
+                fillcolor="lightgreen",
+            )
+
+        return current_id
+
+    try:
+        add_nodes_edges(tree)
+        safe_name = filename or f"decision_tree_{uuid4().hex}"
+        dot.render(filename=safe_name, directory=str(DECISION_TREE_DIR), cleanup=True)
+        image_path = DECISION_TREE_DIR / f"{safe_name}.png"
+        return to_static_url(image_path)
+    except Exception:
+        return None
 
 
 # Legacy entropy function for compatibility
@@ -287,15 +336,11 @@ def build_tree(
             
             # Convert ID3 tree to Node structure for API compatibility
             root_node = Node.from_id3_tree(id3_tree.tree)
-            
-            # Add tree structure information for better API response
-            if hasattr(root_node, 'to_dict'):
-                tree_dict = root_node.to_dict()
-                # Add ID3-specific information
-                tree_dict["algorithm"] = "ID3"
-                tree_dict["initial_entropy"] = float(id3_tree.initial_entropy)
-                tree_dict["raw_tree"] = id3_tree.tree
-            
+            root_node.graph_image = draw_decision_tree(id3_tree.tree)
+            root_node.algorithm = "ID3"
+            root_node.initial_entropy = float(id3_tree.initial_entropy)
+            root_node.raw_tree = id3_tree.tree
+
             return root_node
             
         except Exception as e:
@@ -430,4 +475,3 @@ def predict_tree(root: Node, row: Dict[str, Any]) -> Any:
                 return "Unknown"
     
     return node.prediction
-

@@ -5,12 +5,14 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from utils.csv_utils import parse_csv_bytes, preview_summary, infer_types, select_columns
 from algorithms.kmeans import kmeans
 from algorithms.naive_bayes import compute_categorical_naive_bayes
 from algorithms.decision_tree import build_tree, predict_tree
 from algorithms.reduct import quick_reduct
+from utils.paths import STATIC_DIR
 
 app = FastAPI(title="Data Mining Algorithms API")
 
@@ -22,6 +24,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/api/health")
@@ -140,6 +144,10 @@ async def api_decision_tree(
         "accuracy_train": acc,
         "target": target,
         "feature_types": feature_types,
+        "graph_image": getattr(root, "graph_image", None),
+        "algorithm": getattr(root, "algorithm", None),
+        "initial_entropy": getattr(root, "initial_entropy", None),
+        "raw_tree": getattr(root, "raw_tree", None),
     }
 
 

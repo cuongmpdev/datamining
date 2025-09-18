@@ -3,7 +3,7 @@ import { FileUploader } from '@/components/FileUploader'
 import { Button } from '@/components/ui/Button'
 import { Label } from '@/components/ui/Label'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
-import { apiDecisionTree, apiPreview } from '@/lib/api'
+import { API_BASE, apiDecisionTree, apiPreview } from '@/lib/api'
 import { SampleDatasets } from '@/components/SampleDatasets'
 import { PreviewTable } from '@/components/PreviewTable'
 
@@ -14,15 +14,19 @@ export default function DecisionTreePage() {
   const [target, setTarget] = React.useState<string>('')
   const [result, setResult] = React.useState<any | null>(null)
   const [loading, setLoading] = React.useState(false)
+  const [treeLoading, setTreeLoading] = React.useState(false)
   const [predictionValues, setPredictionValues] = React.useState<Record<string, string>>({})
   const [predictionResult, setPredictionResult] = React.useState<string | null>(null)
 
   React.useEffect(() => {
+    setResult(null)
+    setPredictionResult(null)
+    setPredictionValues({})
+    setTreeLoading(false)
+
     if (!file) {
       setPreview(null);
       setTarget('');
-      setPredictionValues({});
-      setPredictionResult(null);
       return;
     }
     apiPreview(file).then((p) => {
@@ -41,6 +45,26 @@ export default function DecisionTreePage() {
       setPredictionValues(initialValues)
     }).catch(console.error)
   }, [file])
+
+  const treeImageUrl = React.useMemo(() => {
+    if (!result?.graph_image) return null
+    return `${API_BASE}${result.graph_image}`
+  }, [result])
+
+  async function buildDecisionTreeImage() {
+    if (!file || !target) return
+
+    setTreeLoading(true)
+    try {
+      const treeResult = await apiDecisionTree(file, { target })
+      setResult(treeResult)
+    } catch (e) {
+      console.error(e)
+      alert('Lỗi khi xây dựng cây quyết định')
+    } finally {
+      setTreeLoading(false)
+    }
+  }
 
 
   async function makePrediction() {
@@ -160,8 +184,11 @@ export default function DecisionTreePage() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <Button onClick={makePrediction} disabled={!file || !target || loading}>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <Button onClick={buildDecisionTreeImage} disabled={!file || !target || treeLoading || loading}>
+                      {treeLoading ? 'Đang xây dựng cây...' : 'Xây dựng cây'}
+                    </Button>
+                    <Button onClick={makePrediction} disabled={!file || !target || loading || treeLoading}>
                       {loading ? 'Đang dự đoán...' : 'Dự đoán'}
                     </Button>
 
@@ -174,6 +201,21 @@ export default function DecisionTreePage() {
                       </div>
                     )}
                   </div>
+
+                  {treeImageUrl && (
+                    <div>
+                      <Label className="mb-2 block font-medium">Đồ thị cây quyết định</Label>
+                      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                        <img src={treeImageUrl} alt="Decision tree" className="h-auto max-w-full" />
+                      </div>
+                    </div>
+                  )}
+
+                  {result && !treeImageUrl && (
+                    <div className="text-sm text-gray-500">
+                      Biểu đồ hiện chỉ hỗ trợ cây ID3 với thuộc tính phân loại.
+                    </div>
+                  )}
 
                   {predictionResult && (
                     <div className="p-3 bg-gray-50 rounded-lg">
