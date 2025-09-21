@@ -9,7 +9,7 @@ const items = [
   { key: 'kmeans', label: 'Clustering (K-Means)' },
   { key: 'bayes', label: 'Bayes (Naive Bayes)' },
   { key: 'tree', label: 'Cây quyết định' },
-  { key: 'reduct', label: 'Reduct (Rough Set)' },
+  { key: 'reduct', label: 'Reduct' },
 ]
 
 export default function App() {

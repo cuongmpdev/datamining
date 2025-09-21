@@ -5,10 +5,17 @@ import { Label } from '@/components/ui/Label'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { apiNaiveBayes, apiPreview } from '@/lib/api'
 import { SampleDatasets } from '@/components/SampleDatasets'
+import { PreviewTable } from '@/components/PreviewTable'
+
+type PreviewRow = Record<string, string | number | null>
 
 type PreviewInfo = {
   headers: string[]
+  sample?: PreviewRow[]
   value_samples?: Record<string, Array<string | number | null>>
+  types?: Record<string, string>
+  uniques?: Record<string, number>
+  row_count?: number
 }
 
 type PriorInfo = {
@@ -145,6 +152,7 @@ export default function NaiveBayesPage() {
   }, [preview, target])
 
   const valueSamples = preview?.value_samples ?? {}
+  const previewRows: PreviewRow[] = preview?.sample ?? []
 
   async function runNaiveBayes(laplaceValue: number) {
     if (!file || !target || !readyToRun) return
@@ -464,6 +472,26 @@ export default function NaiveBayesPage() {
           </div>
         </CardContent>
       </Card>
+
+      {preview && (
+        <Card>
+          <CardHeader>
+            <div className="font-semibold">Xem nhanh dữ liệu</div>
+            {typeof preview.row_count === 'number' && preview.row_count >= 0 && (
+              <div className="text-sm text-gray-500">
+                {preview.row_count} dòng | {preview.headers.length} thuộc tính
+              </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            {previewRows.length > 0 ? (
+              <PreviewTable headers={preview.headers} rows={previewRows} />
+            ) : (
+              <div className="text-sm text-gray-500">Không có dữ liệu xem trước.</div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {result && (
         <Card>
